@@ -16,7 +16,7 @@ declare -A MODELS=(
     ["qwen-14b"]="Qwen/Qwen2.5-14B-Instruct|0.90|8192|"
     ["qwen-32b"]="Qwen/Qwen2.5-32B-Instruct|0.95|4096|"
     ["qwen-72b"]="Qwen/Qwen2.5-72B-Instruct-AWQ|0.95|4096|awq"
-    ["qwen-math-7b"]="Qwen/Qwen2.5-Math-7B-Instruct|0.85|8192|"
+    ["qwen-math-7b"]="Qwen/Qwen2.5-Math-7B-Instruct|0.85|4096|"
     ["qwen-math-72b"]="Qwen/Qwen2.5-Math-72B-Instruct-AWQ|0.95|4096|awq"
     
     # Llama модели (требуют gated access!)
