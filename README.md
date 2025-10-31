@@ -118,7 +118,7 @@ python check_vllm.py
 
 | Название | Model ID | Описание |
 |----------|----------|----------|
-| `qwen3-vl-2b` | unsloth/Qwen3-VL-2B-Instruct | Vision-Language модель, работает с изображениями + текстом. Контекст: 32K, поддержка до 10 изображений |
+| `qwen3-vl-2b` | unsloth/Qwen3-VL-2B-Instruct | Vision-Language модель, работает с изображениями + текстом. Контекст: 8K, поддержка до 10 изображений. Оптимизированные параметры: top_p=0.8, top_k=20, temperature=0.7, presence_penalty=1.5 |
 
 ### 7B модели (быстрые, ~14GB VRAM)
 
@@ -162,6 +162,55 @@ python check_vllm.py
 
 ### Vision-Language модель с изображениями
 
+#### CLI инструменты (рекомендуется)
+
+**query_qwen3vl.py** - клиент с оптимизированными параметрами:
+
+```bash
+# Сначала запустите VLM сервер:
+./start_server.sh --model qwen3-vl-2b
+
+# Запрос с изображением
+python query_qwen3vl.py \
+  -q "Что изображено на картинке?" \
+  -i imgs/photo.jpg
+
+# Несколько изображений
+python query_qwen3vl.py \
+  -q "Сравни эти изображения" \
+  -i imgs/photo1.jpg imgs/photo2.jpg
+
+# Настройка параметров
+python query_qwen3vl.py \
+  -q "Опиши детально" \
+  -i imgs/photo.jpg \
+  --temperature 0.5 \
+  --top-p 0.9 \
+  --max-tokens 1000
+```
+
+Оптимизированные параметры по умолчанию:
+- `top_p: 0.8` - ядерная выборка
+- `top_k: 20` - топ-20 токенов
+- `temperature: 0.7` - креативность
+- `presence_penalty: 1.5` - разнообразие ответов
+
+**vllm_image_cli.py** - упрощенный CLI:
+
+```bash
+# Простой запрос
+python vllm_image_cli.py imgs/photo.jpg \
+  -q "Что на картинке?"
+
+# С настройками
+python vllm_image_cli.py imgs/photo.jpg \
+  -q "Опиши подробно" \
+  --temperature 0.8 \
+  --max-tokens 500
+```
+
+#### Python OpenAI SDK
+
 ```python
 from openai import OpenAI
 
@@ -170,18 +219,20 @@ client = OpenAI(
     api_key="dummy"
 )
 
-# Сначала запустите VLM модель:
-# ./start_server.sh --model qwen3-vl-2b
-
+# Запрос с оптимизированными параметрами
 response = client.chat.completions.create(
     model="vllm-model",
     messages=[{
         "role": "user",
         "content": [
-            {"type": "text", "text": "Что изображено на этой картинке?"},
+            {"type": "text", "text": "Что изображено на картинке?"},
             {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}}
         ]
     }],
+    top_p=0.8,
+    top_k=20,
+    temperature=0.7,
+    presence_penalty=1.5,
     max_tokens=500
 )
 
@@ -293,11 +344,19 @@ python test_math.py
 vllm-setup/
 ├── start_server.sh                  # Главный скрипт запуска (с пресетами моделей)
 ├── vllm_server.py                   # Python wrapper для vLLM API сервера
-├── test_vllm.py                     # Тест прямого использования vLLM
-├── test_math.py                     # Тест API сервера с математическими задачами
-├── check_vllm.py                    # Проверка установки vLLM и CUDA
-├── reset_env.sh                     # Пересоздание виртуального окружения
-├── install-systems-deps.sh          # Установка системных зависимостей
+│
+├── Vision-Language CLI:
+│   ├── query_qwen3vl.py                 # Клиент для VLM с оптимизированными параметрами
+│   └── vllm_image_cli.py                # Упрощенный CLI для работы с изображениями
+│
+├── Тесты:
+│   ├── test_vllm.py                     # Тест прямого использования vLLM
+│   ├── test_math.py                     # Тест API сервера с математическими задачами
+│   └── check_vllm.py                    # Проверка установки vLLM и CUDA
+│
+├── Установка:
+│   ├── reset_env.sh                     # Пересоздание виртуального окружения
+│   └── install-systems-deps.sh          # Установка системных зависимостей
 │
 ├── CUDA Toolkit и FlashInfer:
 │   ├── install_cuda128_flashinfer.sh   # Установка CUDA 12.8 + FlashInfer (интерактивный)
@@ -318,6 +377,25 @@ vllm-setup/
 ```
 
 ## Расширенные возможности
+
+### Оптимизация Vision-Language моделей
+
+Для модели `qwen3-vl-2b` используются оптимизированные параметры генерации:
+
+- **top_p: 0.8** - Nucleus sampling, баланс разнообразия и качества
+- **top_k: 20** - Ограничение выбора топ-20 токенами
+- **temperature: 0.7** - Креативность (0.0 = детерминированный, 1.0 = случайный)
+- **presence_penalty: 1.5** - Штраф за повторения, увеличивает разнообразие
+- **max_num_seqs: 256** - Параллельная обработка до 256 запросов
+- **Flash Attention** - Включен автоматически для ускорения
+
+Эти параметры подобраны на основе рекомендаций из llama.cpp и обеспечивают:
+- Качественное описание изображений
+- Разнообразие в ответах
+- Минимум повторений
+- Хорошую скорость генерации
+
+CLI инструменты (`query_qwen3vl.py` и `vllm_image_cli.py`) автоматически используют эти параметры.
 
 ### CUDA Toolkit и FlashInfer
 

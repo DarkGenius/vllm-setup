@@ -13,3 +13,6 @@ wheels/
 .idea/
 .vscode/
 .claude/
+
+# Others
+imgs/

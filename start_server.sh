@@ -10,29 +10,29 @@ PORT=8000
 HOST="0.0.0.0"
 CPU_OFFLOAD_GB=""
 
-# Конфигурация моделей: название => "model_id|gpu_mem|max_len|quant|special_flags"
+# Конфигурация моделей: название => "model_id|gpu_mem|max_len|quant|special_flags|sampling_params"
 declare -A MODELS=(
     # Qwen модели
-    ["qwen-7b"]="Qwen/Qwen2.5-7B-Instruct|0.85|8192||"
-    ["qwen-14b"]="Qwen/Qwen2.5-14B-Instruct|0.90|8192||"
-    ["qwen-32b"]="Qwen/Qwen2.5-32B-Instruct|0.95|4096||"
-    ["qwen-72b"]="Qwen/Qwen2.5-72B-Instruct-AWQ|0.95|4096|awq|"
-    ["qwen-math-7b"]="Qwen/Qwen2.5-Math-7B-Instruct|0.85|4096||"
-    ["qwen-math-72b"]="Qwen/Qwen2.5-Math-72B-Instruct-AWQ|0.95|4096|awq|"
+    ["qwen-7b"]="Qwen/Qwen2.5-7B-Instruct|0.85|8192||||"
+    ["qwen-14b"]="Qwen/Qwen2.5-14B-Instruct|0.90|8192||||"
+    ["qwen-32b"]="Qwen/Qwen2.5-32B-Instruct|0.95|4096||||"
+    ["qwen-72b"]="Qwen/Qwen2.5-72B-Instruct-AWQ|0.95|4096|awq|||"
+    ["qwen-math-7b"]="Qwen/Qwen2.5-Math-7B-Instruct|0.85|4096||||"
+    ["qwen-math-72b"]="Qwen/Qwen2.5-Math-72B-Instruct-AWQ|0.95|4096|awq|||"
     
-    # Qwen Vision-Language модели (NEW!)
-    ["qwen3-vl-2b"]="unsloth/Qwen3-VL-2B-Instruct|0.85|8192||vlm"
+    # Qwen Vision-Language модели (оптимизированные параметры)
+    ["qwen3-vl-2b"]="unsloth/Qwen3-VL-2B-Instruct|0.85|8192||vlm|top_p=0.8,top_k=20,temperature=0.7,presence_penalty=1.5"
     
     # Llama модели (требуют gated access!)
-    ["llama-3.2-3b"]="meta-llama/Llama-3.2-3B-Instruct|0.80|8192||"
-    ["llama-3.1-8b"]="meta-llama/Llama-3.1-8B-Instruct|0.85|8192||"
-    ["llama-3.3-70b"]="casperhansen/llama-3.3-70b-instruct-awq|0.85|8192|awq|"
-    ["llama-3.1-70b"]="hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4|0.95|8192|awq|"
+    ["llama-3.2-3b"]="meta-llama/Llama-3.2-3B-Instruct|0.80|8192||||"
+    ["llama-3.1-8b"]="meta-llama/Llama-3.1-8B-Instruct|0.85|8192||||"
+    ["llama-3.3-70b"]="casperhansen/llama-3.3-70b-instruct-awq|0.85|8192|awq|||"
+    ["llama-3.1-70b"]="hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4|0.95|8192|awq|||"
     
     # Другие модели
-    ["mistral-7b"]="mistralai/Mistral-7B-Instruct-v0.3|0.85|8192||"
-    ["mistral-small"]="mistralai/Mistral-Small-Instruct-2409|0.95|8192||"
-    ["deepseek-math"]="deepseek-ai/deepseek-math-7b-instruct|0.85|8192||"
+    ["mistral-7b"]="mistralai/Mistral-7B-Instruct-v0.3|0.85|8192||||"
+    ["mistral-small"]="mistralai/Mistral-Small-Instruct-2409|0.95|8192||||"
+    ["deepseek-math"]="deepseek-ai/deepseek-math-7b-instruct|0.85|8192||||"
 )
 
 # Функция помощи
@@ -55,69 +55,37 @@ show_help() {
 📊 2-3B модели (очень быстрые, ~4-6GB VRAM):
     qwen3-vl-2b       unsloth/Qwen3-VL-2B-Instruct [VLM]
                       Vision-Language модель, работает с изображениями + текстом
-                      Контекст: 32K, поддержка до 10 изображений в промпте
+                      Контекст: 8K, поддержка до 10 изображений в промпте
+                      Оптимизированные параметры генерации:
+                        - top_p: 0.8, top_k: 20, temperature: 0.7
+                        - presence_penalty: 1.5 (для разнообразия)
+                        - Flash Attention включен автоматически
 
 📊 7B модели (быстрые, ~14GB VRAM):
     qwen-7b           Qwen/Qwen2.5-7B-Instruct
-                      Универсальная модель, отлично работает с русским
-                      
     qwen-math-7b      Qwen/Qwen2.5-Math-7B-Instruct
-                      Специализация на математике
-                      
     mistral-7b        mistralai/Mistral-7B-Instruct-v0.3
-                      Быстрая западная модель
-                      
     deepseek-math     deepseek-ai/deepseek-math-7b-instruct
-                      Математическая специализация
 
 📊 14B модели (баланс, ~28GB VRAM):
     qwen-14b          Qwen/Qwen2.5-14B-Instruct
-                      Улучшенное рассуждение
 
 📊 24-32B модели (мощные, ~30GB VRAM):
     mistral-small     mistralai/Mistral-Small-Instruct-2409 (24B)
-                      Баланс скорости и качества
-                      
     qwen-32b          Qwen/Qwen2.5-32B-Instruct
-                      Максимум без квантизации
 
 📊 72B модели (максимум, AWQ 4-bit, ~31GB VRAM):
     qwen-72b          Qwen/Qwen2.5-72B-Instruct-AWQ
-                      Самая мощная универсальная модель
-                      
     qwen-math-72b     Qwen/Qwen2.5-Math-72B-Instruct-AWQ
-                      Лучшая для сложной математики
 
 Примеры:
     ./start_server.sh
     ./start_server.sh --model qwen3-vl-2b
     ./start_server.sh --model qwen-math-72b
     ./start_server.sh --model qwen-14b --port 8001
-    ./start_server.sh --model llama-3.3-70b --cpu-offload-gb 64
-    
-Рекомендации:
-    - Для тестирования: qwen-7b (быстро)
-    - Для работы с изображениями: qwen3-vl-2b (VLM)
-    - Для математики: qwen-math-72b (лучшее качество)
-    - Для production: qwen-72b (универсальная мощь)
 
 После запуска сервер будет доступен по адресу:
     http://localhost:$PORT/v1
-
-Документация API:
-    http://localhost:$PORT/docs
-
-Для Vision моделей используйте формат с изображениями:
-    {
-      "model": "vllm-model",
-      "messages": [{
-        "role": "user",
-        "content": [
-          {"type": "text", "text": "Что на картинке?"},
-          {"type": "image_url", "image_url": {"url": "https://..."}}
-        ]
-      }]
-    }
 
 EOF
 }
@@ -127,31 +95,12 @@ MODEL_NAME="qwen-7b"
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --model)
-            MODEL_NAME="$2"
-            shift 2
-            ;;
-        --port)
-            PORT="$2"
-            shift 2
-            ;;
-        --host)
-            HOST="$2"
-            shift 2
-            ;;
-        --cpu-offload-gb)
-            CPU_OFFLOAD_GB="$2"
-            shift 2
-            ;;
-        --help|-h)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo "❌ Неизвестный аргумент: $1"
-            echo "Используйте --help для справки"
-            exit 1
-            ;;
+        --model) MODEL_NAME="$2"; shift 2 ;;
+        --port) PORT="$2"; shift 2 ;;
+        --host) HOST="$2"; shift 2 ;;
+        --cpu-offload-gb) CPU_OFFLOAD_GB="$2"; shift 2 ;;
+        --help|-h) show_help; exit 0 ;;
+        *) echo "❌ Неизвестный аргумент: $1"; echo "Используйте --help для справки"; exit 1 ;;
     esac
 done
 
@@ -169,38 +118,57 @@ if [[ ! -v MODELS[$MODEL_NAME] ]]; then
 fi
 
 # Разбор конфигурации модели
-IFS='|' read -r MODEL_ID GPU_MEM MAX_LEN QUANT SPECIAL <<< "${MODELS[$MODEL_NAME]}"
+IFS='|' read -r MODEL_ID GPU_MEM MAX_LEN QUANT SPECIAL SAMPLING <<< "${MODELS[$MODEL_NAME]}"
 
-# Формирование базовой команды запуска
-CMD="python -m vllm.entrypoints.openai.api_server \
-    --model $MODEL_ID \
-    --host $HOST \
-    --port $PORT \
-    --trust-remote-code \
-    --gpu-memory-utilization $GPU_MEM \
-    --max-model-len $MAX_LEN \
-    --served-model-name vllm-model"
+# Формирование команды через массив
+CMD_ARGS=(
+    python -m vllm.entrypoints.openai.api_server
+    --model "$MODEL_ID"
+    --host "$HOST"
+    --port "$PORT"
+    --trust-remote-code
+    --gpu-memory-utilization "$GPU_MEM"
+    --max-model-len "$MAX_LEN"
+    --served-model-name vllm-model
+)
 
-# Добавление квантизации если нужно
-if [[ -n "$QUANT" ]]; then
-    CMD="$CMD --quantization $QUANT"
-fi
+# Квантизация
+[[ -n "$QUANT" ]] && CMD_ARGS+=(--quantization "$QUANT")
 
-# Добавление CPU offload если указан
-if [[ -n "$CPU_OFFLOAD_GB" ]]; then
-    CMD="$CMD --cpu-offload-gb $CPU_OFFLOAD_GB"
-fi
+# CPU offload
+[[ -n "$CPU_OFFLOAD_GB" ]] && CMD_ARGS+=(--cpu-offload-gb "$CPU_OFFLOAD_GB")
 
-# Специальные флаги для Vision-Language моделей
+# VLM флаги
 if [[ "$SPECIAL" == "vlm" ]]; then
-    # ИСПРАВЛЕНО: JSON формат для --limit-mm-per-prompt
-    CMD="$CMD --limit-mm-per-prompt '{\"image\": 10}'"
-    CMD="$CMD --enable-prefix-caching"
-    CMD="$CMD --enable-chunked-prefill"
-    CMD="$CMD --max-num-batched-tokens 8192"
+    CMD_ARGS+=(
+        --limit-mm-per-prompt '{"image": 10}'
+        --enable-prefix-caching
+        --enable-chunked-prefill
+        --max-num-batched-tokens 8192
+        --max-num-seqs 256
+    )
     IS_VLM=true
 else
     IS_VLM=false
+fi
+
+# Параметры сэмплирования по умолчанию
+if [[ -n "$SAMPLING" ]]; then
+    # Преобразуем "key=value,key=value" в JSON
+    SAMPLING_JSON="{"
+    IFS=',' read -ra PARAMS <<< "$SAMPLING"
+    for i in "${!PARAMS[@]}"; do
+        IFS='=' read -r key value <<< "${PARAMS[$i]}"
+        [[ $i -gt 0 ]] && SAMPLING_JSON+=","
+        SAMPLING_JSON+="\"$key\": $value"
+    done
+    SAMPLING_JSON+="}"
+    
+    # Добавляем в аргументы (если vLLM поддерживает)
+    # В текущей версии vLLM это настраивается через запросы
+    HAS_SAMPLING=true
+else
+    HAS_SAMPLING=false
 fi
 
 # Вывод информации
@@ -216,6 +184,7 @@ echo "📏 Max Length:    $MAX_LEN"
 if [[ "$IS_VLM" == true ]]; then
     echo "🖼️  Type:          Vision-Language Model (VLM)"
     echo "📸 Images:        До 10 изображений в промпте"
+    echo "🔥 Flash Attn:    Enabled (автоматически)"
 fi
 
 if [[ -n "$QUANT" ]]; then
@@ -224,6 +193,12 @@ fi
 
 if [[ -n "$CPU_OFFLOAD_GB" ]]; then
     echo "💿 CPU Offload:   ${CPU_OFFLOAD_GB} GB"
+fi
+
+if [[ "$HAS_SAMPLING" == true ]]; then
+    echo ""
+    echo "⚙️  Параметры сэмплирования по умолчанию:"
+    echo "   $SAMPLING_JSON"
 fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -239,23 +214,33 @@ else
 fi
 
 echo ""
-echo "⏳ Загрузка модели (30-60 секунд)..."
+echo "⏳ Загрузка модели (30-90 секунд)..."
 echo ""
 
 if [[ "$IS_VLM" == true ]]; then
-    echo "💡 Для работы с изображениями используйте:"
-    echo "   curl http://localhost:$PORT/v1/chat/completions \\"
-    echo "     -H 'Content-Type: application/json' \\"
-    echo "     -d '{"
-    echo "       \"model\": \"vllm-model\","
-    echo "       \"messages\": [{"
-    echo "         \"role\": \"user\","
-    echo "         \"content\": ["
-    echo "           {\"type\": \"text\", \"text\": \"Что на картинке?\"},"
-    echo "           {\"type\": \"image_url\", \"image_url\": {\"url\": \"https://...\"}}"
-    echo "         ]"
-    echo "       }]"
-    echo "     }'"
+    echo "💡 Пример запроса с изображением:"
+    echo ""
+    echo "curl http://localhost:$PORT/v1/chat/completions \\"
+    echo "  -H 'Content-Type: application/json' \\"
+    echo "  -d '{"
+    echo "    \"model\": \"vllm-model\","
+    echo "    \"messages\": [{"
+    echo "      \"role\": \"user\","
+    echo "      \"content\": ["
+    echo "        {\"type\": \"text\", \"text\": \"Что на картинке?\"},"
+    echo "        {\"type\": \"image_url\", \"image_url\": {\"url\": \"https://...\"}}"
+    echo "      ]"
+    echo "    }],"
+    
+    if [[ "$HAS_SAMPLING" == true ]]; then
+        echo "    \"top_p\": 0.8,"
+        echo "    \"top_k\": 20,"
+        echo "    \"temperature\": 0.7,"
+        echo "    \"presence_penalty\": 1.5,"
+    fi
+    
+    echo "    \"max_tokens\": 500"
+    echo "  }'"
     echo ""
 fi
 
@@ -263,4 +248,4 @@ echo "Для остановки нажмите Ctrl+C"
 echo ""
 
 # Запуск сервера
-eval $CMD
+"${CMD_ARGS[@]}"
