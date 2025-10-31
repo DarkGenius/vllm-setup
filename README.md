@@ -543,3 +543,4 @@ python vllm_server.py \
 - [vLLM Documentation](https://docs.vllm.ai/)
 - [Qwen Models](https://huggingface.co/Qwen)
 - [Mistral Models](https://huggingface.co/mistralai)
+- [Llama Models](https://huggingface.co/meta-llama)
