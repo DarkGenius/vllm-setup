@@ -119,8 +119,9 @@ python check_vllm.py
 | Название | Model ID | Описание |
 |----------|----------|----------|
 | `qwen3-vl-2b` | unsloth/Qwen3-VL-2B-Instruct | Vision-Language модель, работает с изображениями + текстом. Контекст: 8K, поддержка до 10 изображений. Оптимизированные параметры: top_p=0.8, top_k=20, temperature=0.7, presence_penalty=1.5 |
+| `llama-3.2-3b` | meta-llama/Llama-3.2-3B-Instruct | Компактная модель от Meta. **Требует gated access** (нужно получить доступ на HuggingFace) |
 
-### 7B модели (быстрые, ~14GB VRAM)
+### 7-8B модели (быстрые, ~14-16GB VRAM)
 
 | Название | Model ID | Описание |
 |----------|----------|----------|
@@ -128,6 +129,7 @@ python check_vllm.py
 | `qwen-math-7b` | Qwen/Qwen2.5-Math-7B-Instruct | Специализация на математике |
 | `mistral-7b` | mistralai/Mistral-7B-Instruct-v0.3 | Быстрая западная модель |
 | `deepseek-math` | deepseek-ai/deepseek-math-7b-instruct | Математическая специализация |
+| `llama-3.1-8b` | meta-llama/Llama-3.1-8B-Instruct | Llama 3.1 от Meta, 8B параметров. **Требует gated access** |
 
 ### 14B модели (баланс, ~28GB VRAM)
 
@@ -142,12 +144,20 @@ python check_vllm.py
 | `mistral-small` | mistralai/Mistral-Small-Instruct-2409 | 24B, баланс скорости и качества |
 | `qwen-32b` | Qwen/Qwen2.5-32B-Instruct | Максимум без квантизации |
 
-### 72B модели (максимум, AWQ 4-bit, ~31GB VRAM)
+### 70-72B модели (максимум, AWQ 4-bit, ~31GB VRAM)
 
 | Название | Model ID | Описание |
 |----------|----------|----------|
-| `qwen-72b` | Qwen/Qwen2.5-72B-Instruct-AWQ | Самая мощная универсальная |
-| `qwen-math-72b` | Qwen/Qwen2.5-Math-72B-Instruct-AWQ | Лучшая для сложной математики |
+| `qwen-72b` | Qwen/Qwen2.5-72B-Instruct-AWQ | Самая мощная универсальная, 72B параметров |
+| `qwen-math-72b` | Qwen/Qwen2.5-Math-72B-Instruct-AWQ | Лучшая для сложной математики, 72B параметров |
+| `llama-3.3-70b` | casperhansen/llama-3.3-70b-instruct-awq | Llama 3.3 от Meta, квантизация AWQ 4-bit. **Требует gated access** |
+| `llama-3.1-70b` | hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4 | Llama 3.1 от Meta, квантизация AWQ INT4. **Требует gated access** |
+
+**Важно о Llama моделях:** Для использования моделей Llama необходимо:
+1. Создать аккаунт на [HuggingFace](https://huggingface.co/)
+2. Запросить доступ на странице модели (например, [Llama-3.1-8B](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct))
+3. Дождаться подтверждения от Meta (обычно несколько часов)
+4. Авторизоваться через `huggingface-cli login` перед использованием
 
 ## API Endpoints
 
