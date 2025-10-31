@@ -87,6 +87,9 @@ python check_vllm.py
 ### Запуск конкретной модели
 
 ```bash
+# Vision-Language модель для работы с изображениями
+./start_server.sh --model qwen3-vl-2b
+
 # Математическая модель 7B (быстрая)
 ./start_server.sh --model qwen-math-7b
 
@@ -98,6 +101,9 @@ python check_vllm.py
 
 # Запуск на другом порту
 ./start_server.sh --model qwen-7b --port 8001
+
+# С CPU offloading (для больших моделей)
+./start_server.sh --model llama-3.3-70b --cpu-offload-gb 64
 ```
 
 ### Список всех доступных моделей
@@ -107,6 +113,12 @@ python check_vllm.py
 ```
 
 ## Доступные модели
+
+### 2-3B модели (очень быстрые, ~4-6GB VRAM)
+
+| Название | Model ID | Описание |
+|----------|----------|----------|
+| `qwen3-vl-2b` | unsloth/Qwen3-VL-2B-Instruct | Vision-Language модель, работает с изображениями + текстом. Контекст: 32K, поддержка до 10 изображений |
 
 ### 7B модели (быстрые, ~14GB VRAM)
 
@@ -147,6 +159,34 @@ python check_vllm.py
 - **GET** `http://localhost:8000/docs` - Swagger UI документация
 
 ## Примеры использования
+
+### Vision-Language модель с изображениями
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8000/v1",
+    api_key="dummy"
+)
+
+# Сначала запустите VLM модель:
+# ./start_server.sh --model qwen3-vl-2b
+
+response = client.chat.completions.create(
+    model="vllm-model",
+    messages=[{
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Что изображено на этой картинке?"},
+            {"type": "image_url", "image_url": {"url": "https://example.com/image.jpg"}}
+        ]
+    }],
+    max_tokens=500
+)
+
+print(response.choices[0].message.content)
+```
 
 ### Python с OpenAI SDK
 
@@ -227,10 +267,11 @@ python test_math.py
 
 ### Выбор модели
 
+- **Для работы с изображениями**: `qwen3-vl-2b` (Vision-Language модель)
 - **Для экспериментов и тестирования**: `qwen-7b` (быстро, мало памяти)
 - **Для математических задач**: `qwen-math-72b` (лучшее качество)
 - **Для production**: `qwen-72b` (универсальная мощь)
-- **При ограниченной VRAM**: `qwen-7b` или `qwen-math-7b`
+- **При ограниченной VRAM**: `qwen3-vl-2b` или `qwen-7b` или `qwen-math-7b`
 
 ### Оптимизация производительности
 
@@ -250,16 +291,120 @@ python test_math.py
 
 ```
 vllm-setup/
-├── start_server.sh           # Главный скрипт запуска (с пресетами моделей)
-├── vllm_server.py           # Python wrapper для vLLM API сервера
-├── test_vllm.py             # Тест прямого использования vLLM
-├── test_math.py             # Тест API сервера с математическими задачами
-├── check_vllm.py            # Проверка установки
-├── reset_env.sh             # Пересоздание виртуального окружения
-├── install-systems-deps.sh  # Установка системных зависимостей
-├── pyproject.toml           # Конфигурация проекта и зависимости
-└── uv.lock                  # Lock-файл зависимостей
+├── start_server.sh                  # Главный скрипт запуска (с пресетами моделей)
+├── vllm_server.py                   # Python wrapper для vLLM API сервера
+├── test_vllm.py                     # Тест прямого использования vLLM
+├── test_math.py                     # Тест API сервера с математическими задачами
+├── check_vllm.py                    # Проверка установки vLLM и CUDA
+├── reset_env.sh                     # Пересоздание виртуального окружения
+├── install-systems-deps.sh          # Установка системных зависимостей
+│
+├── CUDA Toolkit и FlashInfer:
+│   ├── install_cuda128_flashinfer.sh   # Установка CUDA 12.8 + FlashInfer (интерактивный)
+│   ├── install_cuda_auto.sh            # Автоматическая установка CUDA + FlashInfer
+│   ├── uninstall_cuda_toolkit.sh       # Полная деинсталляция CUDA Toolkit
+│   ├── check_flashinfer_availability.sh # Проверка доступности FlashInfer wheels
+│   └── check_pytorch_availability.sh    # Проверка доступности PyTorch для CUDA
+│
+├── Диагностика и проверка:
+│   └── check_uva_detailed.py            # Детальная проверка UVA/CUDA capabilities
+│
+├── Утилиты WSL:
+│   ├── move_to_wsl.sh                   # Копирование проекта в WSL native FS
+│   └── sync.sh                          # Синхронизация проекта в WSL native FS
+│
+├── pyproject.toml                    # Конфигурация проекта и зависимости
+└── uv.lock                           # Lock-файл зависимостей
 ```
+
+## Расширенные возможности
+
+### CUDA Toolkit и FlashInfer
+
+FlashInfer - это библиотека для оптимизации attention kernels, которая может ускорить vLLM на 10-20%. Для работы FlashInfer требуется CUDA Toolkit.
+
+#### Автоматическая установка (рекомендуется)
+
+```bash
+./install_cuda_auto.sh
+```
+
+Скрипт автоматически:
+- Определит версию CUDA драйвера
+- Установит подходящую версию CUDA Toolkit
+- Переустановит PyTorch для правильной версии CUDA
+- Установит FlashInfer
+
+#### Ручная установка CUDA 12.8
+
+```bash
+./install_cuda128_flashinfer.sh
+```
+
+Интерактивный скрипт проведет через все шаги установки.
+
+#### Проверка доступности компонентов
+
+```bash
+# Проверить доступность FlashInfer wheels
+./check_flashinfer_availability.sh
+
+# Проверить доступность PyTorch для разных CUDA
+./check_pytorch_availability.sh
+
+# Детальная проверка CUDA capabilities
+python check_uva_detailed.py
+```
+
+#### Удаление CUDA Toolkit
+
+Если FlashInfer не нужен или вызывает проблемы:
+
+```bash
+./uninstall_cuda_toolkit.sh
+```
+
+vLLM продолжит работать без FlashInfer, используя базовые PyTorch kernels.
+
+### Миграция на WSL Native FS
+
+Для лучшей производительности в WSL2 рекомендуется держать проект в Linux файловой системе, а не на Windows диске (e.g., `/mnt/e/`).
+
+#### Копирование проекта
+
+```bash
+# Полное копирование (создает новую директорию)
+./move_to_wsl.sh
+
+# Целевая директория: ~/projects/vllm-setup
+```
+
+#### Синхронизация изменений
+
+```bash
+# Синхронизировать изменения (не удаляет файлы в цели)
+./sync.sh
+```
+
+Преимущества native FS:
+- Быстрее файловые операции (особенно при компиляции)
+- Лучше работают git операции
+- Нет проблем с permissions и line endings
+
+### CPU Offloading
+
+vLLM V1 поддерживает CPU offloading для запуска моделей, которые не помещаются в GPU память. Однако в WSL2 есть ограничения из-за отсутствия Unified Memory.
+
+```bash
+# Проверить поддержку UVA/Unified Memory
+python check_uva_detailed.py
+```
+
+**Важно:** CPU offloading может не работать в WSL2. Альтернативы:
+- Используйте квантизованные модели (AWQ)
+- Уменьшите `--gpu-memory-utilization`
+- Используйте меньшую модель
+- Используйте `--disable-v1` для legacy engine
 
 ## Устранение проблем
 
